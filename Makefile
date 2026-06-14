@@ -10,28 +10,9 @@ all: bin/
 
 .PHONY: test
 test:
-	@tmpdir=$$(mktemp -d); \
-	cleanup() { pkill -P $$$$; rm -rf $$tmpdir; }; \
-	trap cleanup EXIT INT TERM; \
-	diagslave -m tcp -p 5020 & diagslave -m enc -p 5021 & \
-	go test -run TCP -v .; \
-	pkill -P $$$$
-	@tmpdir=$$(mktemp -d); \
-	cleanup() { pkill -P $$$$; rm -rf $$tmpdir; }; \
-	trap cleanup EXIT INT TERM; \
-	socat -d -d pty,raw,echo=0,link=$$tmpdir/rtu0 pty,raw,echo=0,link=$$tmpdir/rtu1 & \
-	sleep 0.5; \
-	diagslave -m rtu $$tmpdir/rtu1 & \
-	go test -run RTU -v .; \
-	pkill -P $$$$
-	@tmpdir=$$(mktemp -d); \
-	cleanup() { pkill -P $$$$; rm -rf $$tmpdir; }; \
-	trap cleanup EXIT INT TERM; \
-	socat -d -d pty,raw,echo=0,link=$$tmpdir/ascii0 pty,raw,echo=0,link=$$tmpdir/ascii1 & \
-	sleep 0.5; \
-	diagslave -m ascii $$tmpdir/ascii1 & \
-	go test -run ASCII -v .; \
-	pkill -P $$$$
+	./scripts/run-test-with-pty.sh tcp TCP
+	./scripts/run-test-with-pty.sh rtu RTU
+	./scripts/run-test-with-pty.sh ascii ASCII
 	go test -v -count=1 github.com/grid-x/modbus/cmd/modbus-cli 
 
 .PHONY: lint
