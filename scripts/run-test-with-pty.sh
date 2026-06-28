@@ -9,6 +9,8 @@ if [ -z "$MODE" ] || [ "$MODE" != "tcp" -a "$MODE" != "rtu" -a "$MODE" != "ascii
     exit 1
 fi
 
+echo "Running tests in $MODE mode with filter '$TEST_FILTER'"
+
 tmpdir=$(mktemp -d)
 diagslave_pids=""
 socat_pid=""
@@ -68,24 +70,13 @@ case "$MODE" in
 
         go test -run "$TEST_FILTER" -v .
         ;;
-    rtu)
+    rtu|ascii)
         socat -d -d pty,raw,echo=0,link="$tmpdir/pty0" pty,raw,echo=0,link="$tmpdir/pty1" &
         socat_pid=$!
         wait_for_pty "$tmpdir/pty0"
         wait_for_pty "$tmpdir/pty1"
 
-        diagslave -m rtu "$tmpdir/pty1" &
-        diagslave_pids="$! $diagslave_pids"
-
-        go test -run "$TEST_FILTER" -v .
-        ;;
-    ascii)
-        socat -d -d pty,raw,echo=0,link="$tmpdir/pty0" pty,raw,echo=0,link="$tmpdir/pty1" &
-        socat_pid=$!
-        wait_for_pty "$tmpdir/pty0"
-        wait_for_pty "$tmpdir/pty1"
-
-        diagslave -m ascii "$tmpdir/pty1" &
+        diagslave -m "$MODE" "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
 
         go test -run "$TEST_FILTER" -v .
