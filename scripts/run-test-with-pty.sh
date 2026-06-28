@@ -30,15 +30,29 @@ trap cleanup EXIT INT TERM
 
 wait_for_pty() {
     local pty_path=$1
-    local timeout=5
-    local elapsed=0
+    local max_iterations=100  # 100 * 0.05s = 5s timeout
+    local iteration=0
     while [ ! -e "$pty_path" ]; do
-        if [ "$elapsed" -ge "$timeout" ]; then
+        if [ "$iteration" -ge "$max_iterations" ]; then
             echo "ERROR: Timeout waiting for $pty_path to appear" >&2
             exit 1
         fi
         sleep 0.05
-        elapsed=$((elapsed + 1))
+        iteration=$((iteration + 1))
+    done
+}
+
+wait_for_tcp_port() {
+    local port=$1
+    local max_iterations=100  # 100 * 0.05s = 5s timeout
+    local iteration=0
+    while ! nc -z localhost "$port" 2>/dev/null; do
+        if [ "$iteration" -ge "$max_iterations" ]; then
+            echo "ERROR: Timeout waiting for port $port to be listening" >&2
+            exit 1
+        fi
+        sleep 0.05
+        iteration=$((iteration + 1))
     done
 }
 
@@ -46,8 +60,12 @@ case "$MODE" in
     tcp)
         diagslave -m tcp -p 5020 &
         diagslave_pids="$! $diagslave_pids"
+        wait_for_tcp_port 5020
+
         diagslave -m enc -p 5021 &
         diagslave_pids="$! $diagslave_pids"
+        wait_for_tcp_port 5021
+
         go test -run "$TEST_FILTER" -v .
         ;;
     rtu)
@@ -55,8 +73,10 @@ case "$MODE" in
         socat_pid=$!
         wait_for_pty "$tmpdir/pty0"
         wait_for_pty "$tmpdir/pty1"
+
         diagslave -m rtu "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
+
         go test -run "$TEST_FILTER" -v .
         ;;
     ascii)
@@ -64,8 +84,10 @@ case "$MODE" in
         socat_pid=$!
         wait_for_pty "$tmpdir/pty0"
         wait_for_pty "$tmpdir/pty1"
+
         diagslave -m ascii "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
+
         go test -run "$TEST_FILTER" -v .
         ;;
 esac
