@@ -23,6 +23,20 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+wait_for_pty() {
+    local pty_path=$1
+    local timeout=5
+    local elapsed=0
+    while [ ! -e "$pty_path" ]; do
+        if [ "$elapsed" -ge "$timeout" ]; then
+            echo "ERROR: Timeout waiting for $pty_path to appear" >&2
+            exit 1
+        fi
+        sleep 0.05
+        elapsed=$((elapsed + 1))
+    done
+}
+
 case "$MODE" in
     tcp)
         diagslave -m tcp -p 5020 &
@@ -34,7 +48,8 @@ case "$MODE" in
     rtu)
         socat -d -d pty,raw,echo=0,link="$tmpdir/pty0" pty,raw,echo=0,link="$tmpdir/pty1" &
         socat_pid=$!
-        sleep 0.5
+        wait_for_pty "$tmpdir/pty0"
+        wait_for_pty "$tmpdir/pty1"
         diagslave -m rtu "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
         go test -run "$TEST_FILTER" -v .
@@ -42,7 +57,8 @@ case "$MODE" in
     ascii)
         socat -d -d pty,raw,echo=0,link="$tmpdir/pty0" pty,raw,echo=0,link="$tmpdir/pty1" &
         socat_pid=$!
-        sleep 0.5
+        wait_for_pty "$tmpdir/pty0"
+        wait_for_pty "$tmpdir/pty1"
         diagslave -m ascii "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
         go test -run "$TEST_FILTER" -v .
