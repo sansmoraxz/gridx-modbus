@@ -4,6 +4,11 @@ set -e
 MODE=$1
 TEST_FILTER=$2
 
+if [ -z "$MODE" ] || [ "$MODE" != "tcp" -a "$MODE" != "rtu" -a "$MODE" != "ascii" ]; then
+    echo "Usage: $0 {tcp|rtu|ascii} TEST_FILTER"
+    exit 1
+fi
+
 tmpdir=$(mktemp -d)
 diagslave_pids=""
 socat_pid=""
@@ -62,9 +67,5 @@ case "$MODE" in
         diagslave -m ascii "$tmpdir/pty1" &
         diagslave_pids="$! $diagslave_pids"
         go test -run "$TEST_FILTER" -v .
-        ;;
-    *)
-        echo "Usage: $0 {tcp|rtu|ascii} TEST_FILTER"
-        exit 1
         ;;
 esac
